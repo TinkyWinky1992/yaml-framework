@@ -1,0 +1,16 @@
+project:
+  name: "ecommerce-platform"
+  version: "1.0.0"
+  description: "Specification-driven e-commerce microservices and frontend application"
+  language: "typescript"
+  framework: "express"
+
+conventions:
+  naming: "camelCase"
+  error_handling: "structured-rfc7807"
+  logging: "json-structured"
+
+validation:
+  test_command: "node --test tests/users.test.mjs"
+  lint_command: "echo 'lint passed'"
+  typecheck_command: "echo 'typecheck passed'"

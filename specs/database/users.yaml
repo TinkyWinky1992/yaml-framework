@@ -1,0 +1,18 @@
+entity:
+  name: User
+  table: users
+  fields:
+    - name: id
+      type: string
+      primary_key: true
+      nullable: false
+    - name: email
+      type: string
+      unique: true
+      nullable: false
+    - name: name
+      type: string
+      nullable: false
+    - name: created_at
+      type: timestamp
+      nullable: false

@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background-color: #09090b;
+  color: #e4e4e7;
+  font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors
+      disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-ghost {
+    @apply btn text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100;
+  }
+  .btn-primary {
+    @apply btn bg-indigo-600 text-white hover:bg-indigo-500;
+  }
+  .btn-danger {
+    @apply btn text-rose-300 hover:bg-rose-950 hover:text-rose-200;
+  }
+  .panel-title {
+    @apply flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500;
+  }
+  .chip {
+    @apply rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+  }
+}

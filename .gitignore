@@ -1,0 +1,10 @@
+/target
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+*.db
+*.db-journal
+.DS_Store
+desktop.ini
+*.log

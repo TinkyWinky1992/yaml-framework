@@ -1,0 +1,32 @@
+api:
+  name: getUser
+  method: GET
+  path: /api/users/{id}
+  description: Retrieve user details by unique identifier
+
+  security:
+    authentication: required
+    permission: users.read
+
+  parameters:
+    - name: id
+      in: path
+      type: string
+      required: true
+
+  responses:
+    200:
+      description: User retrieved successfully
+      schema:
+        id: string
+        email: string
+        name: string
+
+    401:
+      description: Authentication required
+
+    403:
+      description: Insufficient permissions
+
+    404:
+      description: User not found

@@ -1,0 +1,5 @@
+component:
+  name: UserProfileView
+  type: Page
+  api_dependencies:
+    - getUser
