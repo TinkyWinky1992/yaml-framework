@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/ai-ide-core",
     "crates/ai-ide-server",
+    "src-tauri",
 ]
 
 [workspace.package]

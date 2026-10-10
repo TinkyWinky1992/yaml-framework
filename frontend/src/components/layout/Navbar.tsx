@@ -1,9 +1,7 @@
-import { Cpu, FlaskConical, GitBranch, Loader2, Radar, RotateCcw, Save, Wifi, WifiOff } from 'lucide-react';
+import { Cpu, FlaskConical, Loader2, Radar, RotateCcw, Save, Settings, Wifi, WifiOff } from 'lucide-react';
 import type { ProvidersResponse } from '../../types';
 
 interface Props {
-  branch: string;
-  changedFileCount: number;
   dirty: boolean;
   busy: string | null;
   connected: boolean;
@@ -13,6 +11,7 @@ interface Props {
   onScanDrift: () => void;
   onRollback: () => void;
   onProviderChange: (id: string) => void;
+  onOpenSettings: () => void;
 }
 
 export default function Navbar(p: Props) {
@@ -24,17 +23,6 @@ export default function Navbar(p: Props) {
           AI
         </div>
         <span className="text-sm font-semibold text-zinc-100">Spec IDE</span>
-      </div>
-
-      <div
-        className="flex items-center gap-1.5 rounded bg-zinc-800/70 px-2 py-1 text-xs text-zinc-300"
-        title="Current git branch"
-      >
-        <GitBranch size={13} />
-        <span data-testid="git-branch">{p.branch || '—'}</span>
-        {p.changedFileCount > 0 && (
-          <span className="chip bg-amber-500/20 text-amber-300">{p.changedFileCount} changed</span>
-        )}
       </div>
 
       <div className="ml-2 flex items-center gap-1">
@@ -75,6 +63,9 @@ export default function Navbar(p: Props) {
             </select>
           </label>
         )}
+        <button className="btn-ghost" onClick={p.onOpenSettings} title="Settings (theme and more)" aria-label="Open settings">
+          <Settings size={14} />
+        </button>
         <span
           className={`flex items-center gap-1 text-xs ${p.connected ? 'text-emerald-400' : 'text-zinc-500'}`}
           title={p.connected ? 'Live file events connected' : 'Live file events disconnected'}

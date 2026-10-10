@@ -1,0 +1,20 @@
+[package]
+name = "ai-ide-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "AI Spec IDE desktop app: the Rust server and the React UI in one native window"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+ai-ide-server = { path = "../crates/ai-ide-server" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+keyring = { version = "3", features = ["windows-native"] }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true

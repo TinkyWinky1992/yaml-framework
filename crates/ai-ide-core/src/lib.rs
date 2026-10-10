@@ -3,13 +3,13 @@ pub mod changes;
 pub mod context;
 pub mod drift;
 pub mod error;
-pub mod git;
 pub mod graph;
 pub mod models;
 pub mod patch;
 pub mod specs;
 pub mod storage;
 pub mod validation;
+pub mod watch;
 pub mod workspace;
 
 pub use error::{IdeError, IdeResult};

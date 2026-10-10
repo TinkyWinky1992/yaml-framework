@@ -56,6 +56,14 @@ impl GenerationStore {
         Ok(())
     }
 
+    pub fn update_status(&self, id: &str, status: &str) -> IdeResult<()> {
+        self.conn.execute(
+            "UPDATE generation_history SET status = ?1 WHERE id = ?2",
+            params![status, id],
+        )?;
+        Ok(())
+    }
+
     pub fn list_history(&self) -> IdeResult<Vec<GenerationRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, timestamp, spec_version_hash, plan_summary, patches_json, git_base_commit, status 

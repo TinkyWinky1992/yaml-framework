@@ -2,10 +2,10 @@ import type {
   DriftDiagnostic,
   FilePatch,
   GenerationRecord,
-  GitStatus,
   ImpactResult,
   ImplementationPlan,
   ProvidersResponse,
+  RepairReport,
   SemanticChange,
   SpecNode,
   ValidationSummary,
@@ -13,7 +13,12 @@ import type {
 } from './types';
 
 // Empty in dev (Vite proxy) and when served by the Rust server; absolute inside Tauri.
-export const API_BASE: string = import.meta.env.VITE_API_BASE ?? '';
+let API_BASE: string = import.meta.env.VITE_API_BASE ?? '';
+
+/** Set once at startup (see main.tsx) before any request is made. */
+export function setApiBase(base: string): void {
+  API_BASE = base;
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -49,11 +54,17 @@ export const api = {
   impact: (changed_spec_ids: string[]) => post<ImpactResult>('/api/impact', { changed_spec_ids }),
   generate: (description: string, spec_id: string, new_yaml: string) =>
     post<ImplementationPlan>('/api/generate', { description, spec_id, new_yaml }),
+  repair: (body: {
+    description: string;
+    spec_id: string;
+    new_yaml: string;
+    checks: [string, string][];
+    max_attempts: number;
+  }) => post<RepairReport>('/api/repair', body),
   applyPatches: (patches: FilePatch[]) =>
     post<{ success: boolean; record_id: string }>('/api/patch/apply', { patches }),
   runValidation: (checks: [string, string][]) => post<ValidationSummary>('/api/validation/run', { checks }),
-  gitStatus: () => request<GitStatus>('/api/git/status'),
-  rollback: () => post<{ success: boolean; message: string }>('/api/git/rollback', {}),
+  rollback: () => post<{ success: boolean; message: string }>('/api/rollback', {}),
   drift: () => request<DriftDiagnostic[]>('/api/drift'),
   history: () => request<GenerationRecord[]>('/api/history'),
   providers: () => request<ProvidersResponse>('/api/providers'),

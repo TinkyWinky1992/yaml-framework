@@ -52,9 +52,6 @@ pub enum IdeError {
         output: String,
     },
 
-    #[error("Git error: {0}")]
-    Git(String),
-
     #[error("Database persistence error: {0}")]
     Database(#[from] rusqlite::Error),
 

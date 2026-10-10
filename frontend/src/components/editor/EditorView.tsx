@@ -3,6 +3,7 @@ import Editor, { DiffEditor, type OnMount } from '@monaco-editor/react';
 import { Code2, GitCompare, X } from 'lucide-react';
 import type { FilePatch } from '../../types';
 import { languageFor } from '../../monaco';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface Props {
   path: string | null;
@@ -25,6 +26,7 @@ const editorOptions = {
 };
 
 export default function EditorView({ path, content, dirty, reviewPatch, onChange, onSave, onCloseReview }: Props) {
+  const { monacoTheme } = useTheme();
   const saveRef = useRef(onSave);
   useEffect(() => {
     saveRef.current = onSave;
@@ -51,7 +53,7 @@ export default function EditorView({ path, content, dirty, reviewPatch, onChange
         </div>
         <div className="flex-1">
           <DiffEditor
-            theme="vs-dark"
+            theme={monacoTheme}
             language={languageFor(reviewPatch.path)}
             original={reviewPatch.original_content ?? ''}
             modified={reviewPatch.patched_content}
@@ -87,7 +89,7 @@ export default function EditorView({ path, content, dirty, reviewPatch, onChange
       <div className="flex-1">
         <Editor
           key={path}
-          theme="vs-dark"
+          theme={monacoTheme}
           path={path}
           language={languageFor(path)}
           value={content}

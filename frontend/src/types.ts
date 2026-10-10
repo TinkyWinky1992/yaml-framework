@@ -99,12 +99,6 @@ export interface WorkspaceResponse {
   files: string[];
 }
 
-export interface GitStatus {
-  branch: string;
-  status: string;
-  diff: string;
-}
-
 export interface ProviderInfo {
   id: string;
   label: string;
@@ -128,4 +122,19 @@ export interface LogEntry {
   time: string;
   level: 'info' | 'success' | 'error';
   message: string;
+}
+
+export interface RepairAttempt {
+  attempt: number;
+  max_attempts: number;
+  errors_fed: string[];
+  plan: ImplementationPlan;
+  validation: ValidationSummary;
+}
+
+export interface RepairReport {
+  success: boolean;
+  attempts: RepairAttempt[];
+  applied_patches: FilePatch[];
+  error: string | null;
 }

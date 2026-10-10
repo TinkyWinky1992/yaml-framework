@@ -6,13 +6,13 @@ import Sidebar from './components/layout/Sidebar';
 import EditorView from './components/editor/EditorView';
 import AssistantPanel from './components/assistant/AssistantPanel';
 import BottomPanel from './components/bottom/BottomPanel';
+import SettingsDialog from './components/settings/SettingsDialog';
 import type {
   BottomTab,
   DriftDiagnostic,
   FileEvent,
   FilePatch,
   GenerationRecord,
-  GitStatus,
   ImpactResult,
   ImplementationPlan,
   LogEntry,
@@ -30,7 +30,6 @@ const isSpecFile = (path: string) => path.startsWith('specs/') && /\.ya?ml$/.tes
 export default function App() {
   const [files, setFiles] = useState<string[]>([]);
   const [specs, setSpecs] = useState<SpecNode[]>([]);
-  const [git, setGit] = useState<GitStatus | null>(null);
   const [providers, setProviders] = useState<ProvidersResponse | null>(null);
 
   const [selected, setSelected] = useState<string | null>(null);
@@ -45,23 +44,17 @@ export default function App() {
   const [reviewing, setReviewing] = useState<FilePatch | null>(null);
 
   const [validation, setValidation] = useState<ValidationSummary | null>(null);
+  /** The last Generate request, replayed by "Try to fix" when the tests fail. */
+  const [lastRequest, setLastRequest] = useState<{ description: string; specId: string; yaml: string } | null>(null);
   const [drift, setDrift] = useState<DriftDiagnostic[] | null>(null);
   const [history, setHistory] = useState<GenerationRecord[]>([]);
   const [bottomTab, setBottomTab] = useState<BottomTab>('log');
   const [log, setLog] = useState<LogEntry[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const logId = useRef(0);
 
   const spec = useMemo(() => specs.find((s) => s.file_path === selected) ?? null, [specs, selected]);
-
-  const modifiedFiles = useMemo(() => {
-    const set = new Set<string>();
-    git?.status
-      .split('\n')
-      .filter(Boolean)
-      .forEach((line) => set.add(line.slice(3).trim().replace(/^"|"$/g, '')));
-    return set;
-  }, [git]);
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
     setLog((prev) => [
@@ -86,10 +79,9 @@ export default function App() {
   );
 
   const refreshWorkspace = useCallback(async () => {
-    const [ws, sp, gs, hist] = await Promise.all([api.workspace(), api.specs(), api.gitStatus(), api.history()]);
+    const [ws, sp, hist] = await Promise.all([api.workspace(), api.specs(), api.history()]);
     setFiles(ws.files);
     setSpecs(sp);
-    setGit(gs);
     setHistory(hist);
   }, []);
 
@@ -190,8 +182,8 @@ export default function App() {
 
   const rollback = () => {
     const ok = window.confirm(
-      'Rollback discards ALL uncommitted changes in the workspace (git checkout -- . && git clean -fd), ' +
-        'including new untracked files. Continue?',
+      'Undo the last applied AI change? Only the files it wrote are restored; ' +
+        'files you edited since are left untouched (the rollback is refused).',
     );
     if (!ok) return;
     run('rollback', async () => {
@@ -206,12 +198,41 @@ export default function App() {
 
   const generate = (description: string) => {
     if (!spec) return;
+    const request = { description, specId: spec.id, yaml: content };
     run('generate', async () => {
       addLog('info', `Generating plan for ${spec.id} via ${providers?.active ?? 'mock'}…`);
+      setLastRequest(request);
       const p = await api.generate(description, spec.id, content);
       setPlan(p);
       setReviewing(p.patches[0] ?? null);
       addLog('success', p.summary);
+    });
+  };
+
+  const repair = () => {
+    if (!lastRequest) return;
+    run('repair', async () => {
+      addLog('info', `Asking ${providers?.active ?? 'mock'} to fix the failing checks (max 3 attempts)…`);
+      const res = await api.repair({
+        description: lastRequest.description,
+        spec_id: lastRequest.specId,
+        new_yaml: lastRequest.yaml,
+        checks: TEST_CHECKS,
+        max_attempts: 3,
+      });
+      if (res.applied_patches.length > 0) {
+        addLog('info', `Repair wrote ${res.applied_patches.map((p) => p.path).join(', ')}`);
+        await refreshWorkspace();
+        if (selected && !dirty) await loadFile(selected).catch(() => undefined);
+      }
+      if (res.error) addLog('error', `Repair stopped: ${res.error}`);
+      const summary = res.attempts.at(-1)?.validation ?? (await api.runValidation(TEST_CHECKS));
+      setValidation(summary);
+      setBottomTab('tests');
+      addLog(
+        summary.overall_success ? 'success' : 'error',
+        `Repair ${summary.overall_success ? 'fixed the tests' : 'did not fix the tests'} after ${res.attempts.length} attempt(s)`,
+      );
     });
   };
 
@@ -258,8 +279,6 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <Navbar
-        branch={git?.branch ?? ''}
-        changedFileCount={modifiedFiles.size}
         dirty={dirty}
         busy={busy}
         connected={connected}
@@ -269,13 +288,13 @@ export default function App() {
         onScanDrift={scanDrift}
         onRollback={rollback}
         onProviderChange={changeProvider}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
       <div className="flex min-h-0 flex-1">
         <div className="w-60 shrink-0 border-r border-zinc-800">
           <Sidebar
             files={files}
             selected={selected}
-            modifiedFiles={modifiedFiles}
             onSelect={selectFile}
             onRefresh={() => run('refresh', refreshWorkspace)}
           />
@@ -301,6 +320,9 @@ export default function App() {
               history={history}
               log={log}
               onOpenFile={selectFile}
+              canRepair={lastRequest !== null}
+              repairing={busy === 'repair'}
+              onRepair={repair}
             />
           </div>
         </main>
@@ -323,6 +345,7 @@ export default function App() {
           />
         </div>
       </div>
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

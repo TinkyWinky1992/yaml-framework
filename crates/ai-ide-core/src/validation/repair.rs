@@ -1,51 +1,85 @@
 use crate::ai::provider::AiProvider;
 use crate::error::IdeResult;
-use crate::models::{RepairAttempt, TaskContext};
+use crate::models::{FilePatch, RepairAttempt, TaskContext};
 use crate::patch::PatchEngine;
 
 use crate::validation::runner::ValidationRunner;
 use crate::workspace::WorkspaceManager;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RepairReport {
+    pub success: bool,
+    pub attempts: Vec<RepairAttempt>,
+    /// Every patch written to disk, in order, so the caller can record it for rollback.
+    pub applied_patches: Vec<FilePatch>,
+    /// Set when the loop stopped early (provider error, write conflict, or a failed check run).
+    pub error: Option<String>,
+}
 
 pub struct RepairOrchestrator;
 
 impl RepairOrchestrator {
+    /// Runs checks, asks the provider for fixes, applies them, and repeats up to `max_attempts`.
+    ///
+    /// Errors after the first write are returned inside the report, not as `Err`, so the caller
+    /// still learns about every patch that reached disk.
     pub async fn run_bounded_repair(
         wm: &WorkspaceManager,
         provider: &dyn AiProvider,
         context: &TaskContext,
         checks: &[(&str, &str)],
         max_attempts: usize,
-    ) -> IdeResult<(bool, Vec<RepairAttempt>)> {
-        let mut attempts = Vec::new();
+    ) -> IdeResult<RepairReport> {
+        let mut report = RepairReport {
+            success: false,
+            attempts: Vec::new(),
+            applied_patches: Vec::new(),
+            error: None,
+        };
 
-        // Initial validation
-        let initial_val = ValidationRunner::run_all(wm, checks).await?;
-        if initial_val.overall_success {
-            return Ok((true, attempts));
+        let mut current_val = ValidationRunner::run_all(wm, checks).await?;
+        if current_val.overall_success {
+            report.success = true;
+            return Ok(report);
         }
 
-        let mut current_val = initial_val;
-
+        let mut context = context.clone();
         for attempt_idx in 1..=max_attempts {
-            // Collect failure messages
             let failures: Vec<String> = current_val.checks.iter()
                 .filter(|c| !c.success)
                 .map(|c| format!("Check '{}' failed (exit {:?}):\nSTDOUT: {}\nSTDERR: {}", c.name, c.exit_code, c.stdout, c.stderr))
                 .collect();
 
-            // Ask AI to generate repair patch
-            let repair_plan = provider.repair_patch(context, &failures).await?;
+            // Earlier repairs changed files on disk, so send the current contents, not the originals.
+            refresh_impacted_files(wm, &mut context);
 
-            // Apply repair patches
+            let repair_plan = match provider.repair_patch(&context, &failures).await {
+                Ok(plan) => plan,
+                Err(e) => {
+                    report.error = Some(e.to_string());
+                    return Ok(report);
+                }
+            };
+
             for patch in &repair_plan.patches {
-                PatchEngine::apply_patch(wm, patch)?;
+                if let Err(e) = PatchEngine::apply_patch(wm, patch) {
+                    report.error = Some(e.to_string());
+                    return Ok(report);
+                }
+                report.applied_patches.push(patch.clone());
             }
 
-            // Re-run checks
-            let next_val = ValidationRunner::run_all(wm, checks).await?;
+            let next_val = match ValidationRunner::run_all(wm, checks).await {
+                Ok(val) => val,
+                Err(e) => {
+                    report.error = Some(e.to_string());
+                    return Ok(report);
+                }
+            };
             let success = next_val.overall_success;
 
-            attempts.push(RepairAttempt {
+            report.attempts.push(RepairAttempt {
                 attempt: attempt_idx,
                 max_attempts,
                 errors_fed: failures,
@@ -54,12 +88,22 @@ impl RepairOrchestrator {
             });
 
             if success {
-                return Ok((true, attempts));
+                report.success = true;
+                return Ok(report);
             }
 
             current_val = next_val;
         }
 
-        Ok((false, attempts))
+        Ok(report)
+    }
+}
+
+/// Reloads every file in the context from disk. Files that no longer exist keep their last content.
+fn refresh_impacted_files(wm: &WorkspaceManager, context: &mut TaskContext) {
+    for (path, content) in context.impacted_files.iter_mut() {
+        if let Ok(fresh) = wm.read_file(path) {
+            *content = fresh;
+        }
     }
 }

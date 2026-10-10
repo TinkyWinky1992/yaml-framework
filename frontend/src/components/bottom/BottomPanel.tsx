@@ -9,6 +9,10 @@ interface Props {
   history: GenerationRecord[];
   log: LogEntry[];
   onOpenFile: (path: string) => void;
+  /** Shown on failing tests when there is an AI request to retry. */
+  canRepair: boolean;
+  repairing: boolean;
+  onRepair: () => void;
 }
 
 const severityIcon = {
@@ -42,7 +46,18 @@ function Empty({ text }: { text: string }) {
   return <p className="p-3 text-xs text-zinc-500">{text}</p>;
 }
 
-export default function BottomPanel({ tab, onTab, validation, drift, history, log, onOpenFile }: Props) {
+export default function BottomPanel({
+  tab,
+  onTab,
+  validation,
+  drift,
+  history,
+  log,
+  onOpenFile,
+  canRepair,
+  repairing,
+  onRepair,
+}: Props) {
   const driftErrors = drift?.filter((d) => d.severity === 'error').length ?? 0;
 
   return (
@@ -78,23 +93,33 @@ export default function BottomPanel({ tab, onTab, validation, drift, history, lo
           (!validation ? (
             <Empty text="No test run yet. Click “Run Tests” or approve a patch." />
           ) : (
-            validation.checks.map((c) => (
-              <div key={c.name} className="border-b border-zinc-800/60 p-2">
-                <div className="mb-1 flex items-center gap-2">
-                  {c.success ? (
-                    <CheckCircle2 size={13} className="text-emerald-400" />
-                  ) : (
-                    <XCircle size={13} className="text-rose-400" />
-                  )}
-                  <span className="font-semibold text-zinc-200">{c.name}</span>
-                  <span className="text-zinc-500">$ {c.command}</span>
-                  <span className="ml-auto text-zinc-500">
-                    exit {c.exit_code ?? '?'} · {c.duration_ms} ms
-                  </span>
+            <>
+              {!validation.overall_success && canRepair && (
+                <div className="flex items-center gap-2 border-b border-zinc-800/60 p-2 font-sans">
+                  <span className="text-zinc-400">Tests failed after the AI change.</span>
+                  <button className="btn-ghost ml-auto" onClick={onRepair} disabled={repairing}>
+                    {repairing ? 'Trying to fix…' : 'Try to fix (max 3)'}
+                  </button>
                 </div>
-                <pre className="whitespace-pre-wrap text-zinc-400">{(c.stdout + c.stderr).trim() || '(no output)'}</pre>
-              </div>
-            ))
+              )}
+              {validation.checks.map((c) => (
+                <div key={c.name} className="border-b border-zinc-800/60 p-2">
+                  <div className="mb-1 flex items-center gap-2">
+                    {c.success ? (
+                      <CheckCircle2 size={13} className="text-emerald-400" />
+                    ) : (
+                      <XCircle size={13} className="text-rose-400" />
+                    )}
+                    <span className="font-semibold text-zinc-200">{c.name}</span>
+                    <span className="text-zinc-500">$ {c.command}</span>
+                    <span className="ml-auto text-zinc-500">
+                      exit {c.exit_code ?? '?'} · {c.duration_ms} ms
+                    </span>
+                  </div>
+                  <pre className="whitespace-pre-wrap text-zinc-400">{(c.stdout + c.stderr).trim() || '(no output)'}</pre>
+                </div>
+              ))}
+            </>
           ))}
 
         {tab === 'drift' &&

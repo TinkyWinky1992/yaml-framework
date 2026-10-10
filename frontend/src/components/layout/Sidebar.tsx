@@ -4,7 +4,6 @@ import { ChevronDown, ChevronRight, FileCode2, FileJson, FileText, Folder, Folde
 interface Props {
   files: string[];
   selected: string | null;
-  modifiedFiles: Set<string>;
   onSelect: (path: string) => void;
   onRefresh: () => void;
 }
@@ -46,7 +45,7 @@ function FileIcon({ name }: { name: string }) {
   return <FileText size={14} className="shrink-0 text-zinc-400" />;
 }
 
-export default function Sidebar({ files, selected, modifiedFiles, onSelect, onRefresh }: Props) {
+export default function Sidebar({ files, selected, onSelect, onRefresh }: Props) {
   const tree = useMemo(() => buildTree(files), [files]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -73,9 +72,7 @@ export default function Sidebar({ files, selected, modifiedFiles, onSelect, onRe
           }`}
         >
           <FileIcon name={node.name} />
-          <span className="truncate">{node.name}</span>
-          {modifiedFiles.has(node.path) && <span className="ml-auto text-[10px] font-bold text-amber-400">M</span>}
-        </button>
+          <span className="truncate">{node.name}</span>        </button>
       );
     }
     const open = !collapsed.has(node.path);
